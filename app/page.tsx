@@ -1,14 +1,18 @@
 "use client";
+
 import { useEffect, useState } from "react";
 
 export default function Page() {
   const [message, setMessage] = useState("Loading...");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8002")
+    fetch("http://127.0.0.1:8001/")
       .then((res) => res.json())
       .then((data) => setMessage(data.message))
-      .catch(() => setMessage("Failed to connect to backend"));
+      .catch((err) => {
+        console.error(err);
+        setMessage("Failed to connect to backend");
+      });
   }, []);
 
   return (
