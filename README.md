@@ -28,7 +28,7 @@
       <a href="https://github.com/angel-jane">
         <img src="https://github.com/angel-jane.png" width="120px;" alt="Angel"/>
         <br />
-        <sub><b>Angel Jannete D. Taglucop</b></sub>
+        <sub><b>Angel Janette D. Taglucop</b></sub>
       </a>
       <br />
       <sub>@angel-jane</sub>
