@@ -4,7 +4,8 @@ import type {
   RoomSnapshot,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = API_URL.replace(/\/+$/, "");
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -19,7 +20,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export async function createRoom(hostName: string): Promise<CreateRoomResponse> {
-  const res = await fetch(`${API_URL}/rooms`, {
+  const res = await fetch(`${API_BASE_URL}/rooms`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -34,7 +35,7 @@ export async function joinRoom(
   roomCode: string,
   playerName: string
 ): Promise<JoinRoomResponse> {
-  const res = await fetch(`${API_URL}/players/join`, {
+  const res = await fetch(`${API_BASE_URL}/players/join`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -49,7 +50,7 @@ export async function joinRoom(
 }
 
 export async function getRoom(roomCode: string): Promise<RoomSnapshot> {
-  const res = await fetch(`${API_URL}/rooms/${roomCode}`, {
+  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}`, {
     cache: "no-store",
   });
 
@@ -57,7 +58,7 @@ export async function getRoom(roomCode: string): Promise<RoomSnapshot> {
 }
 
 export async function callNumber(roomCode: string, hostId: string) {
-  const res = await fetch(`${API_URL}/rooms/${roomCode}/call-number`, {
+  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}/call-number`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -69,7 +70,7 @@ export async function callNumber(roomCode: string, hostId: string) {
 }
 
 export async function claimBingo(roomCode: string, playerId: string) {
-  const res = await fetch(`${API_URL}/rooms/${roomCode}/claim-bingo`, {
+  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}/claim-bingo`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -81,6 +82,6 @@ export async function claimBingo(roomCode: string, playerId: string) {
 }
 
 export function getRoomWebSocketUrl(roomCode: string) {
-  const base = API_URL.replace(/^http/, "ws");
+  const base = API_BASE_URL.replace(/^http/, "ws");
   return `${base}/ws/${roomCode}`;
 }
