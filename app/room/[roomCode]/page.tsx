@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import { callNumber, claimBingo, getRoom, getRoomWebSocketUrl } from "@/lib/api";
 import type { BingoCell, RoomSnapshot } from "@/lib/types";
 import RoomHeader from "@/components/room/RoomHeader";
@@ -8,25 +9,22 @@ import BingoCard from "@/components/room/BingoCard";
 import PlayerList from "@/components/room/PlayerList";
 import CalledNumbers from "@/components/room/CalledNumbers";
 
-type RoomPageProps = {
-  params: Promise<{ roomCode: string }>;
-};
+export default function RoomPage() {
+  const params = useParams();
+  const roomCode = String(params.roomCode || "").toUpperCase();
 
-export default function RoomPage({ params }: RoomPageProps) {
-  const [roomCode, setRoomCode] = useState("");
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [card, setCard] = useState<BingoCell[][]>([]);
   const [playerId, setPlayerId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [markedCells, setMarkedCells] = useState<string[]>([]);
 
   useEffect(() => {
-    async function init() {
-      const resolvedParams = await params;
-      const code = resolvedParams.roomCode.toUpperCase();
-      setRoomCode(code);
+    if (!roomCode) return;
 
+    async function init() {
       const storedPlayerId = localStorage.getItem("player_id") || "";
       const storedCard = localStorage.getItem("player_card");
 
@@ -34,12 +32,19 @@ export default function RoomPage({ params }: RoomPageProps) {
 
       if (storedCard) {
         try {
-          setCard(JSON.parse(storedCard));
-        } catch {}
+          const parsedCard = JSON.parse(storedCard) as BingoCell[][];
+          setCard(parsedCard);
+
+          const hasFreeCenter = parsedCard?.[2]?.[2] === "FREE";
+          setMarkedCells(hasFreeCenter ? ["2-2"] : []);
+        } catch {
+          setCard([]);
+          setMarkedCells([]);
+        }
       }
 
       try {
-        const snapshot = await getRoom(code);
+        const snapshot = await getRoom(roomCode);
         setRoom(snapshot);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load room");
@@ -49,7 +54,7 @@ export default function RoomPage({ params }: RoomPageProps) {
     }
 
     init();
-  }, [params]);
+  }, [roomCode]);
 
   useEffect(() => {
     if (!roomCode) return;
@@ -79,8 +84,25 @@ export default function RoomPage({ params }: RoomPageProps) {
     return room.host_id === playerId;
   }, [room, playerId]);
 
+  function handleCellClick(row: number, col: number, value: BingoCell) {
+    if (!room) return;
+
+    const key = `${row}-${col}`;
+
+    if (value === "FREE") return;
+
+    const numericValue = Number(value);
+    if (!room.called_numbers.includes(numericValue)) return;
+
+    setMarkedCells((prev) =>
+      prev.includes(key)
+        ? prev.filter((cellKey) => cellKey !== key)
+        : [...prev, key]
+    );
+  }
+
   async function handleCallNumber() {
-    if (!roomCode || !playerId) return;
+    if (!playerId) return;
 
     setActionLoading(true);
     setError("");
@@ -96,7 +118,7 @@ export default function RoomPage({ params }: RoomPageProps) {
   }
 
   async function handleClaimBingo() {
-    if (!roomCode || !playerId) return;
+    if (!playerId) return;
 
     setActionLoading(true);
     setError("");
@@ -141,6 +163,8 @@ export default function RoomPage({ params }: RoomPageProps) {
           onClaimBingo={handleClaimBingo}
         />
 
+        <CalledNumbers numbers={room.called_numbers} />
+
         {error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
@@ -148,11 +172,13 @@ export default function RoomPage({ params }: RoomPageProps) {
         ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]">
-          <BingoCard card={card} />
-          <div className="space-y-6">
-            <PlayerList players={room.players} />
-            <CalledNumbers numbers={room.called_numbers} />
-          </div>
+          <BingoCard
+            card={card}
+            calledNumbers={room.called_numbers}
+            markedCells={markedCells}
+            onCellClick={handleCellClick}
+          />
+          <PlayerList players={room.players} />
         </div>
       </div>
     </main>
