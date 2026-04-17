@@ -69,7 +69,10 @@ export async function callNumber(roomCode: string, hostId: string) {
   return handleResponse<{ number: number; room: RoomSnapshot }>(res);
 }
 
-export async function claimBingo(roomCode: string, playerId: string) {
+export async function claimBingo(
+  roomCode: string,
+  playerId: string
+): Promise<{ is_valid: boolean; room: RoomSnapshot }> {
   const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}/claim-bingo`, {
     method: "POST",
     headers: {
