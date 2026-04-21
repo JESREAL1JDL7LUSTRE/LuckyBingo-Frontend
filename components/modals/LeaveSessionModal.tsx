@@ -5,36 +5,29 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-type Props = {
+interface Props {
   open: boolean;
   onConfirm: () => void;
   onCancel: () => void;
-};
+}
 
-export default function LeaveSessionModal({
-  open,
-  onConfirm,
-  onCancel,
-}: Props) {
+export default function LeaveSessionModal({ open, onConfirm, onCancel }: Props) {
   return (
-    <Dialog open={open} onOpenChange={onCancel}>
-      <DialogContent className="text-center">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
+      <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-xl">
-            Leave Session?
-          </DialogTitle>
+          <DialogTitle>Leave Room?</DialogTitle>
+          <DialogDescription>
+            You can re-enter this room later from the home screen as long as it is still active.
+          </DialogDescription>
         </DialogHeader>
-
-        <p className="text-muted-foreground">
-          You can re-enter later without losing your card.
-        </p>
-
-        <div className="flex justify-center gap-3 pt-2">
+        <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onCancel}>
-            Cancel
+            Stay
           </Button>
           <Button variant="destructive" onClick={onConfirm}>
             Leave

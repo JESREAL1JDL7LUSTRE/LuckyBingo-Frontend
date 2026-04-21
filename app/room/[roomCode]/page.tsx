@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+
 import WinnerModal from "@/components/modals/WinnerModal";
 import SessionEndedModal from "@/components/modals/SessionEndedModal";
 import InvalidBingoModal from "@/components/modals/InvalidBingoModal";
+import LeaveSessionModal from "@/components/modals/LeaveSessionModal";
 
 import {
   callNumber,
@@ -27,20 +29,25 @@ export default function RoomPage() {
   const router = useRouter();
 
   const roomCode = String(params.roomCode || "").toUpperCase();
+
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [winnerName, setWinnerName] = useState("");
   const [showInvalidBingoModal, setShowInvalidBingoModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showSessionEndedModal, setShowSessionEndedModal] = useState(false);
 
+  // Host failover toast
+  const [showHostPromotionToast, setShowHostPromotionToast] = useState(false);
+
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [card, setCard] = useState<BingoCell[][]>([]);
   const [playerId, setPlayerId] = useState("");
   const [playerName, setPlayerName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [markedCells, setMarkedCells] = useState<string[]>([]);
+
+  // Track previous host to detect failover
+  const prevHostIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const pid = localStorage.getItem("player_id") || "";
@@ -51,27 +58,43 @@ export default function RoomPage() {
     setPlayerName(pname);
 
     if (storedCard) {
-      const parsed = JSON.parse(storedCard);
-      setCard(parsed);
+      try {
+        setCard(JSON.parse(storedCard));
+      } catch {}
     }
 
-    getRoom(roomCode).then(setRoom);
+    getRoom(roomCode).then((r) => {
+      setRoom(r);
+      prevHostIdRef.current = r.host_id;
+    });
   }, [roomCode]);
 
   /* WEBSOCKET */
   useEffect(() => {
     if (!roomCode || !playerId) return;
 
-    const ws = new WebSocket(
-      getRoomWebSocketUrl(roomCode, playerId, playerName)
-    );
+    const ws = new WebSocket(getRoomWebSocketUrl(roomCode, playerId, playerName));
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
 
         if (data.room) {
-          setRoom(data.room);
+          const newRoom: RoomSnapshot = data.room;
+
+          setRoom((prev) => {
+            // Detect host failover: host changed AND current player is new host
+            if (
+              prev &&
+              prev.host_id !== newRoom.host_id &&
+              newRoom.host_id === playerId
+            ) {
+              setShowHostPromotionToast(true);
+              setTimeout(() => setShowHostPromotionToast(false), 5000);
+            }
+            prevHostIdRef.current = newRoom.host_id;
+            return newRoom;
+          });
         }
 
         if (data.type === "bingo_won") {
@@ -82,65 +105,65 @@ export default function RoomPage() {
         if (data.type === "session_ended") {
           setShowSessionEndedModal(true);
         }
-
       } catch (err) {
         console.error("WebSocket parse error:", err);
       }
     };
 
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-    };
+    ws.onerror = (err) => console.error("WebSocket error:", err);
 
     return () => ws.close();
-  }, [roomCode, playerId]);
+  }, [roomCode, playerId, playerName]);
 
   const isHost = useMemo(() => {
     return room?.host_id === playerId;
   }, [room, playerId]);
 
   /* ACTIONS */
-
   async function handleCallNumber() {
     const res = await callNumber(roomCode, playerId);
     setRoom(res.room);
   }
 
   async function handleClaimBingo() {
-  if (actionLoading) return;
-
-  setActionLoading(true);
-  try {
-    const res = await claimBingo(roomCode, playerId);
-    if (!res.is_valid) {
-      setShowInvalidBingoModal(true);
+    if (actionLoading) return;
+    setActionLoading(true);
+    try {
+      const res = await claimBingo(roomCode, playerId);
+      if (!res.is_valid) setShowInvalidBingoModal(true);
+    } finally {
+      setActionLoading(false);
     }
-  } finally {
-    setActionLoading(false);
   }
-}
 
   async function handleEndSession() {
     await endSession(roomCode, playerId);
   }
 
-  async function handleLeave() {
+  async function handleLeaveConfirmed() {
     await leaveRoom(roomCode, playerId);
     localStorage.removeItem("room_code");
     router.push("/");
   }
 
-  if (!room) return <p>Loading...</p>;
+  if (!room) return <p className="p-6">Loading...</p>;
 
   return (
     <main className="p-6 space-y-6">
+      {/* Host promotion toast */}
+      {showHostPromotionToast && (
+        <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-sm font-medium text-primary shadow-lg">
+          👑 You are now the host of this room.
+        </div>
+      )}
+
       <RoomHeader
         room={room}
         isHost={isHost}
-        actionLoading={false}
+        actionLoading={actionLoading}
         onCallNumber={handleCallNumber}
         onClaimBingo={handleClaimBingo}
-        onLeave={handleLeave}
+        onLeave={() => setShowLeaveModal(true)}
         onEndSession={handleEndSession}
       />
 
@@ -155,30 +178,38 @@ export default function RoomPage() {
             const key = `${r}-${c}`;
             if (!room.called_numbers.includes(Number(val))) return;
             setMarkedCells((prev) =>
-              prev.includes(key)
-                ? prev.filter((x) => x !== key)
-                : [...prev, key]
+              prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
             );
           }}
         />
-
         <PlayerList players={room.players} />
       </div>
+
       <WinnerModal
-          open={showWinnerModal}
-          winnerName={winnerName}
-          onClose={() => setShowWinnerModal(false)}
-        />
+        open={showWinnerModal}
+        winnerName={winnerName}
+        onClose={() => setShowWinnerModal(false)}
+      />
 
-        <SessionEndedModal
-          open={showSessionEndedModal}
-          onGoHome={() => router.push("/")}
-        />
+      <SessionEndedModal
+        open={showSessionEndedModal}
+        onGoHome={() => {
+          setShowSessionEndedModal(false);
+          router.push("/");
+        }}
+        onCancel={() => setShowSessionEndedModal(false)}
+      />
 
-        <InvalidBingoModal
-          open={showInvalidBingoModal}
-          onClose={() => setShowInvalidBingoModal(false)}
-        />
+      <InvalidBingoModal
+        open={showInvalidBingoModal}
+        onClose={() => setShowInvalidBingoModal(false)}
+      />
+
+      <LeaveSessionModal
+        open={showLeaveModal}
+        onConfirm={handleLeaveConfirmed}
+        onCancel={() => setShowLeaveModal(false)}
+      />
     </main>
   );
 }
