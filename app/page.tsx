@@ -1,29 +1,77 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import HomeHero from "@/components/home/HomeHero";
 import CreateRoomForm from "@/components/home/CreateRoomForm";
 import JoinRoomForm from "@/components/home/JoinRoomForm";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { createRoom, joinRoom } from "@/lib/api";
 
 export default function HomePage() {
   const router = useRouter();
 
+  const [playerName, setPlayerName] = useState("");
+  const [draftName, setDraftName] = useState("");
+  const [identityReady, setIdentityReady] = useState(false);
   const [error, setError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
 
-  async function handleCreateRoom(hostName: string) {
+  useEffect(() => {
+    let playerId = localStorage.getItem("player_id");
+    const storedName = localStorage.getItem("player_name") || "";
+
+    if (!playerId) {
+      playerId = crypto.randomUUID();
+      localStorage.setItem("player_id", playerId);
+    }
+
+    setPlayerName(storedName);
+    setDraftName(storedName);
+    setIdentityReady(true);
+  }, []);
+
+  function handleSaveName(e: FormEvent) {
+    e.preventDefault();
+    const normalizedName = draftName.trim();
+    if (!normalizedName) {
+      setError("Name is required");
+      return;
+    }
+
+    localStorage.setItem("player_name", normalizedName);
+    setPlayerName(normalizedName);
+    setError("");
+  }
+
+  function handleClearLocalStorage() {
+    localStorage.clear();
+    localStorage.setItem("player_id", crypto.randomUUID());
+    setPlayerName("");
+    setDraftName("");
+    setError("");
+    setIdentityReady(true);
+  }
+
+  async function handleCreateRoom() {
     setError("");
     setCreateLoading(true);
 
     try {
-      const data = await createRoom(hostName);
+      const playerId = localStorage.getItem("player_id") || "";
+      const name = localStorage.getItem("player_name") || "";
+
+      if (!playerId || !name) {
+        throw new Error("Player identity not initialized");
+      }
+
+      const data = await createRoom(name, playerId);
 
       localStorage.setItem("player_id", data.player_id);
       localStorage.setItem("room_code", data.room_code);
-      localStorage.setItem("player_name", hostName);
       localStorage.setItem("player_card", JSON.stringify(data.card));
 
       router.push(`/room/${data.room_code}`);
@@ -34,16 +82,22 @@ export default function HomePage() {
     }
   }
 
-  async function handleJoinRoom(playerName: string, roomCode: string) {
+  async function handleJoinRoom(roomCode: string) {
     setError("");
     setJoinLoading(true);
 
     try {
-      const data = await joinRoom(roomCode, playerName);
+      const playerId = localStorage.getItem("player_id") || "";
+      const name = localStorage.getItem("player_name") || "";
+
+      if (!playerId || !name) {
+        throw new Error("Player identity not initialized");
+      }
+
+      const data = await joinRoom(roomCode, playerId, name);
 
       localStorage.setItem("player_id", data.player_id);
       localStorage.setItem("room_code", data.room_code);
-      localStorage.setItem("player_name", playerName);
       localStorage.setItem("player_card", JSON.stringify(data.card));
 
       router.push(`/room/${data.room_code}`);
@@ -59,16 +113,51 @@ export default function HomePage() {
       <div className="mx-auto max-w-5xl space-y-8">
         <HomeHero />
 
+        {identityReady && !playerName ? (
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle>Set Your Name</CardTitle>
+              <CardDescription>
+                Enter your name once. This browser will reuse it automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSaveName} className="flex flex-col gap-3 sm:flex-row">
+                <Input
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  placeholder="Enter your name"
+                  required
+                />
+                <Button type="submit">Continue</Button>
+              </form>
+            </CardContent>
+          </Card>
+        ) : null}
+
         {error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <CreateRoomForm onSubmit={handleCreateRoom} loading={createLoading} />
-          <JoinRoomForm onSubmit={handleJoinRoom} loading={joinLoading} />
-        </div>
+        {playerName ? (
+          <>
+            <div className="flex flex-col gap-3 rounded-xl border px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                Playing as <span className="font-semibold text-foreground">{playerName}</span>
+              </div>
+              <Button variant="outline" onClick={handleClearLocalStorage}>
+                Change Name / Reset Identity
+              </Button>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <CreateRoomForm onSubmit={handleCreateRoom} loading={createLoading} />
+              <JoinRoomForm onSubmit={handleJoinRoom} loading={joinLoading} />
+            </div>
+          </>
+        ) : null}
       </div>
     </main>
   );
