@@ -2,13 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+
 import HomeHero from "@/components/home/HomeHero";
 import CreateRoomForm from "@/components/home/CreateRoomForm";
 import JoinRoomForm from "@/components/home/JoinRoomForm";
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { createRoom, joinRoom } from "@/lib/api";
+
+import { createRoom, joinRoom, reEnterRoom } from "@/lib/api";
 
 export default function HomePage() {
   const router = useRouter();
@@ -19,10 +28,14 @@ export default function HomePage() {
   const [error, setError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
+  const [reEnterLoading, setReEnterLoading] = useState(false);
+
+  const [hasPreviousRoom, setHasPreviousRoom] = useState(false);
 
   useEffect(() => {
     let playerId = localStorage.getItem("player_id");
     const storedName = localStorage.getItem("player_name") || "";
+    const storedRoom = localStorage.getItem("room_code");
 
     if (!playerId) {
       playerId = crypto.randomUUID();
@@ -31,12 +44,15 @@ export default function HomePage() {
 
     setPlayerName(storedName);
     setDraftName(storedName);
+    setHasPreviousRoom(!!storedRoom);
     setIdentityReady(true);
   }, []);
 
   function handleSaveName(e: FormEvent) {
     e.preventDefault();
+
     const normalizedName = draftName.trim();
+
     if (!normalizedName) {
       setError("Name is required");
       return;
@@ -50,9 +66,11 @@ export default function HomePage() {
   function handleClearLocalStorage() {
     localStorage.clear();
     localStorage.setItem("player_id", crypto.randomUUID());
+
     setPlayerName("");
     setDraftName("");
     setError("");
+    setHasPreviousRoom(false);
     setIdentityReady(true);
   }
 
@@ -108,11 +126,37 @@ export default function HomePage() {
     }
   }
 
+  /* ✅ NEW: RE-ENTER FUNCTION */
+  async function handleReEnter() {
+    setError("");
+    setReEnterLoading(true);
+
+    try {
+      const playerId = localStorage.getItem("player_id") || "";
+      const roomCode = localStorage.getItem("room_code") || "";
+
+      if (!playerId || !roomCode) {
+        throw new Error("No previous session found");
+      }
+
+      const data = await reEnterRoom(roomCode, playerId);
+
+      localStorage.setItem("player_card", JSON.stringify(data.card));
+
+      router.push(`/room/${roomCode}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to re-enter room");
+    } finally {
+      setReEnterLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-background px-6 py-10">
       <div className="mx-auto max-w-5xl space-y-8">
         <HomeHero />
 
+        {/* NAME SETUP */}
         {identityReady && !playerName ? (
           <Card className="rounded-2xl">
             <CardHeader>
@@ -122,7 +166,10 @@ export default function HomePage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSaveName} className="flex flex-col gap-3 sm:flex-row">
+              <form
+                onSubmit={handleSaveName}
+                className="flex flex-col gap-3 sm:flex-row"
+              >
                 <Input
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
@@ -135,26 +182,53 @@ export default function HomePage() {
           </Card>
         ) : null}
 
+        {/* ERROR */}
         {error ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
           </div>
         ) : null}
 
+        {/* MAIN CONTENT */}
         {playerName ? (
           <>
             <div className="flex flex-col gap-3 rounded-xl border px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <div>
-                Playing as <span className="font-semibold text-foreground">{playerName}</span>
+                Playing as{" "}
+                <span className="font-semibold text-foreground">
+                  {playerName}
+                </span>
               </div>
-              <Button variant="outline" onClick={handleClearLocalStorage}>
-                Change Name / Reset Identity
-              </Button>
+
+              <div className="flex gap-2">
+                {/* ✅ RE-ENTER BUTTON */}
+                {hasPreviousRoom && (
+                  <Button
+                    variant="secondary"
+                    onClick={handleReEnter}
+                    disabled={reEnterLoading}
+                  >
+                    {reEnterLoading
+                      ? "Re-entering..."
+                      : "Re-enter Last Room"}
+                  </Button>
+                )}
+
+                <Button variant="outline" onClick={handleClearLocalStorage}>
+                  Change Name / Reset Identity
+                </Button>
+              </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
-              <CreateRoomForm onSubmit={handleCreateRoom} loading={createLoading} />
-              <JoinRoomForm onSubmit={handleJoinRoom} loading={joinLoading} />
+              <CreateRoomForm
+                onSubmit={handleCreateRoom}
+                loading={createLoading}
+              />
+              <JoinRoomForm
+                onSubmit={handleJoinRoom}
+                loading={joinLoading}
+              />
             </div>
           </>
         ) : null}
