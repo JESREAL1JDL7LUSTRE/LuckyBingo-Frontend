@@ -16,7 +16,7 @@ export default function PlayerList({ players }: PlayerListProps) {
           <div key={player.player_id} className="rounded-xl border bg-muted/50 px-4 py-3">
             <div className="font-medium">{player.player_name}</div>
             <div className="text-sm text-muted-foreground">
-              {player.is_host ? "Host" : "Player"}
+              {player.is_host ? "Host" : "Player"} · {player.connected ? "Connected" : "Disconnected"}
             </div>
           </div>
         ))}

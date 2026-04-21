@@ -19,13 +19,16 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
-export async function createRoom(hostName: string): Promise<CreateRoomResponse> {
+export async function createRoom(
+  hostName: string,
+  hostId: string
+): Promise<CreateRoomResponse> {
   const res = await fetch(`${API_BASE_URL}/rooms`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ host_name: hostName }),
+    body: JSON.stringify({ host_name: hostName, host_id: hostId }),
   });
 
   return handleResponse<CreateRoomResponse>(res);
@@ -33,6 +36,7 @@ export async function createRoom(hostName: string): Promise<CreateRoomResponse> 
 
 export async function joinRoom(
   roomCode: string,
+  playerId: string,
   playerName: string
 ): Promise<JoinRoomResponse> {
   const res = await fetch(`${API_BASE_URL}/players/join`, {
@@ -42,7 +46,8 @@ export async function joinRoom(
     },
     body: JSON.stringify({
       room_code: roomCode,
-      player_name: playerName,
+      player_id: playerId,
+      name: playerName,
     }),
   });
 
@@ -84,7 +89,15 @@ export async function claimBingo(
   return handleResponse<{ is_valid: boolean; room: RoomSnapshot }>(res);
 }
 
-export function getRoomWebSocketUrl(roomCode: string) {
+export function getRoomWebSocketUrl(
+  roomCode: string,
+  playerId: string,
+  playerName: string
+) {
   const base = API_BASE_URL.replace(/^http/, "ws");
-  return `${base}/ws/${roomCode}`;
+  const query = new URLSearchParams({
+    player_id: playerId,
+    name: playerName,
+  });
+  return `${base}/ws/${roomCode}?${query.toString()}`;
 }

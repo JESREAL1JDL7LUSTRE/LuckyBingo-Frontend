@@ -16,6 +16,7 @@ export default function RoomPage() {
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [card, setCard] = useState<BingoCell[][]>([]);
   const [playerId, setPlayerId] = useState("");
+  const [playerName, setPlayerName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -26,9 +27,15 @@ export default function RoomPage() {
 
     async function init() {
       const storedPlayerId = localStorage.getItem("player_id") || "";
+      const storedPlayerName = localStorage.getItem("player_name") || "";
       const storedCard = localStorage.getItem("player_card");
 
       setPlayerId(storedPlayerId);
+      setPlayerName(storedPlayerName);
+
+      if (!storedPlayerId || !storedPlayerName) {
+        setError("Missing player identity. Return to home and set your name.");
+      }
 
       if (storedCard) {
         try {
@@ -57,9 +64,9 @@ export default function RoomPage() {
   }, [roomCode]);
 
   useEffect(() => {
-    if (!roomCode) return;
+    if (!roomCode || !playerId || !playerName) return;
 
-    const ws = new WebSocket(getRoomWebSocketUrl(roomCode));
+    const ws = new WebSocket(getRoomWebSocketUrl(roomCode, playerId, playerName));
 
     ws.onmessage = (event) => {
       try {
@@ -77,7 +84,7 @@ export default function RoomPage() {
     };
 
     return () => ws.close();
-  }, [roomCode]);
+  }, [roomCode, playerId, playerName]);
 
   const isHost = useMemo(() => {
     if (!room || !playerId) return false;
