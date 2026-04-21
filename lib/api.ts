@@ -1,6 +1,7 @@
 import type {
   CreateRoomResponse,
   JoinRoomResponse,
+  PublicRoomSummary,
   RoomSnapshot,
   BingoCell,
 } from "./types";
@@ -22,14 +23,22 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
 export async function createRoom(
   hostName: string,
-  hostId: string
+  hostId: string,
+  visibility: "public" | "private" = "private"
 ): Promise<CreateRoomResponse> {
   const res = await fetch(`${API_BASE_URL}/rooms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ host_name: hostName, host_id: hostId }),
+    body: JSON.stringify({ host_name: hostName, host_id: hostId, visibility }),
   });
   return handleResponse<CreateRoomResponse>(res);
+}
+
+export async function getPublicRooms(): Promise<PublicRoomSummary[]> {
+  const res = await fetch(`${API_BASE_URL}/rooms/public`, {
+    cache: "no-store",
+  });
+  return handleResponse<PublicRoomSummary[]>(res);
 }
 
 export async function joinRoom(
@@ -121,5 +130,5 @@ export function getRoomWebSocketUrl(
     player_id: playerId,
     name: playerName,
   });
-  return `${base}/ws/${roomCode}?${query.toString()}`;
+  return `${base}/ws/rooms/${roomCode}?${query.toString()}`;
 }

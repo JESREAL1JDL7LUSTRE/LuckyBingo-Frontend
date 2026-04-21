@@ -10,7 +10,9 @@ export type PlayerSummary = {
 export type RoomSnapshot = {
   room_code: string;
   host_id: string;
+  visibility: "public" | "private";
   status: "waiting" | "in_progress" | "finished";
+  ended_by_host: boolean;
   players: PlayerSummary[];
   called_numbers: number[];
   current_number: number | null;
@@ -20,6 +22,7 @@ export type RoomSnapshot = {
 export type CreateRoomRequest = {
   host_name: string;
   host_id: string;
+  visibility: "public" | "private";
 };
 
 export type CreateRoomResponse = {
@@ -39,4 +42,12 @@ export type JoinRoomResponse = {
   player_id: string;
   room_code: string;
   card: BingoCell[][];
+};
+
+export type PublicRoomSummary = {
+  room_code: string;
+  host_id: string;
+  status: "waiting" | "in_progress";
+  total_players: number;
+  connected_players: number;
 };

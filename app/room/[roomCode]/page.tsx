@@ -43,6 +43,7 @@ export default function RoomPage() {
   const [card, setCard] = useState<BingoCell[][]>([]);
   const [playerId, setPlayerId] = useState("");
   const [playerName, setPlayerName] = useState("");
+  const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [markedCells, setMarkedCells] = useState<string[]>([]);
 
@@ -63,10 +64,14 @@ export default function RoomPage() {
       } catch {}
     }
 
-    getRoom(roomCode).then((r) => {
-      setRoom(r);
-      prevHostIdRef.current = r.host_id;
-    });
+    getRoom(roomCode)
+      .then((r) => {
+        setRoom(r);
+        prevHostIdRef.current = r.host_id;
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load room");
+      });
   }, [roomCode]);
 
   /* WEBSOCKET */
@@ -121,35 +126,82 @@ export default function RoomPage() {
 
   /* ACTIONS */
   async function handleCallNumber() {
-    const res = await callNumber(roomCode, playerId);
-    setRoom(res.room);
+    setError("");
+    try {
+      const res = await callNumber(roomCode, playerId);
+      setRoom(res.room);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to call number");
+    }
   }
 
   async function handleClaimBingo() {
     if (actionLoading) return;
+    setError("");
     setActionLoading(true);
     try {
       const res = await claimBingo(roomCode, playerId);
       if (!res.is_valid) setShowInvalidBingoModal(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to claim bingo");
     } finally {
       setActionLoading(false);
     }
   }
 
   async function handleEndSession() {
-    await endSession(roomCode, playerId);
+    setError("");
+    try {
+      await endSession(roomCode, playerId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to end session");
+    }
   }
 
   async function handleLeaveConfirmed() {
-    await leaveRoom(roomCode, playerId);
-    localStorage.removeItem("room_code");
+    setError("");
+    try {
+      await leaveRoom(roomCode, playerId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to leave room";
+      if (message !== "Room not found") {
+        setError(message);
+        return;
+      }
+    }
     router.push("/");
   }
 
-  if (!room) return <p className="p-6">Loading...</p>;
+  if (!room) {
+    return (
+      <main className="p-6 space-y-4">
+        {error ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        ) : (
+          <p>Loading...</p>
+        )}
+        <div>
+          <button
+            className="rounded-md border px-3 py-2 text-sm"
+            onClick={() => router.push("/")}
+          >
+            Back To Home
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="p-6 space-y-6">
+      {error ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+
       {/* Host promotion toast */}
       {showHostPromotionToast && (
         <div className="fixed top-4 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-primary/30 bg-primary/10 px-5 py-3 text-sm font-medium text-primary shadow-lg">
