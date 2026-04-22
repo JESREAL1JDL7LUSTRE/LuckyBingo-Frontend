@@ -17,7 +17,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-import { createRoom, joinRoom, reEnterRoom } from "@/lib/api";
+import {
+  createRoom,
+  getPublicRooms,
+  joinRoom,
+  reEnterRoom,
+} from "@/lib/api";
 
 export default function HomePage() {
   const router = useRouter();
@@ -74,7 +79,7 @@ export default function HomePage() {
     setIdentityReady(true);
   }
 
-  async function handleCreateRoom() {
+  async function handleCreateRoom(visibility: "public" | "private") {
     setError("");
     setCreateLoading(true);
 
@@ -86,7 +91,7 @@ export default function HomePage() {
         throw new Error("Player identity not initialized");
       }
 
-      const data = await createRoom(name, playerId);
+      const data = await createRoom(name, playerId, visibility);
 
       localStorage.setItem("player_id", data.player_id);
       localStorage.setItem("room_code", data.room_code);
@@ -123,6 +128,25 @@ export default function HomePage() {
       setError(err instanceof Error ? err.message : "Failed to join room");
     } finally {
       setJoinLoading(false);
+    }
+  }
+
+  async function handleQuickPlay() {
+    setError("");
+
+    try {
+      const rooms = await getPublicRooms();
+
+      if (rooms.length === 0) {
+        setError("No active public lobbies available.");
+        return;
+      }
+
+      const randomIndex = Math.floor(Math.random() * rooms.length);
+      const randomRoom = rooms[randomIndex];
+      await handleJoinRoom(randomRoom.room_code);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to quick play");
     }
   }
 
@@ -229,6 +253,25 @@ export default function HomePage() {
                 onSubmit={handleJoinRoom}
                 loading={joinLoading}
               />
+            </div>
+
+            <div className="rounded-2xl border p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-semibold">Quick Play</div>
+                  <div className="text-sm text-muted-foreground">
+                    Instantly join a random active public room.
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleQuickPlay}
+                  disabled={joinLoading}
+                >
+                  {joinLoading ? "Joining..." : "Quick Play"}
+                </Button>
+              </div>
             </div>
           </>
         ) : null}
