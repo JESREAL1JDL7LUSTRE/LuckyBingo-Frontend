@@ -234,7 +234,7 @@ export default function RoomPage() {
             );
           }}
         />
-        <PlayerList players={room.players} />
+        <PlayerList players={room.players} currentPlayerId={playerId} />
       </div>
 
       <WinnerModal
