@@ -97,6 +97,15 @@ export async function endSession(roomCode: string, hostId: string) {
   return handleResponse<{ room: RoomSnapshot }>(res);
 }
 
+export async function sendQuickChat(roomCode: string, playerId: string, message: string) {
+  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}/quick-chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ player_id: playerId, message }),
+  });
+  return handleResponse<{ ok: boolean }>(res);
+}
+
 export async function leaveRoom(roomCode: string, playerId: string) {
   const res = await fetch(`${API_BASE_URL}/players/leave`, {
     method: "POST",
