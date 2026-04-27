@@ -15,6 +15,7 @@ import {
   getRoomWebSocketUrl,
   endSession,
   leaveRoom,
+  sendQuickChat,
 } from "@/lib/api";
 
 import type { BingoCell, RoomSnapshot } from "@/lib/types";
@@ -46,6 +47,8 @@ export default function RoomPage() {
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [markedCells, setMarkedCells] = useState<string[]>([]);
+  const [activeQuickChats, setActiveQuickChats] = useState<Record<string, string>>({});
+  const quickChatTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Track previous host to detect failover
   const prevHostIdRef = useRef<string | null>(null);
@@ -110,6 +113,30 @@ export default function RoomPage() {
         if (data.type === "session_ended") {
           setShowSessionEndedModal(true);
         }
+
+        if (data.type === "quick_chat" && data.player_id && data.message) {
+          const chatPlayerId = String(data.player_id);
+          const chatMessage = String(data.message);
+
+          setActiveQuickChats((prev) => ({
+            ...prev,
+            [chatPlayerId]: chatMessage,
+          }));
+
+          const existingTimeout = quickChatTimeoutsRef.current[chatPlayerId];
+          if (existingTimeout) {
+            clearTimeout(existingTimeout);
+          }
+
+          quickChatTimeoutsRef.current[chatPlayerId] = setTimeout(() => {
+            setActiveQuickChats((prev) => {
+              const next = { ...prev };
+              delete next[chatPlayerId];
+              return next;
+            });
+            delete quickChatTimeoutsRef.current[chatPlayerId];
+          }, 4000);
+        }
       } catch (err) {
         console.error("WebSocket parse error:", err);
       }
@@ -117,7 +144,11 @@ export default function RoomPage() {
 
     ws.onerror = (err) => console.error("WebSocket error:", err);
 
-    return () => ws.close();
+    return () => {
+      ws.close();
+      Object.values(quickChatTimeoutsRef.current).forEach((timerId) => clearTimeout(timerId));
+      quickChatTimeoutsRef.current = {};
+    };
   }, [roomCode, playerId, playerName]);
 
   const isHost = useMemo(() => {
@@ -170,6 +201,15 @@ export default function RoomPage() {
       }
     }
     router.push("/");
+  }
+
+  async function handleSendQuickChat(message: string) {
+    if (!roomCode || !playerId) return;
+    try {
+      await sendQuickChat(roomCode, playerId, message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send quick chat");
+    }
   }
 
   if (!room) {
@@ -234,7 +274,12 @@ export default function RoomPage() {
             );
           }}
         />
-        <PlayerList players={room.players} />
+        <PlayerList
+          players={room.players}
+          currentPlayerId={playerId}
+          activeQuickChats={activeQuickChats}
+          onSendQuickChat={handleSendQuickChat}
+        />
       </div>
 
       <WinnerModal
