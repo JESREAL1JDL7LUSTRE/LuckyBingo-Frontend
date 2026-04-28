@@ -4,25 +4,13 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import HomeHero from "@/components/home/HomeHero";
+import NameSetupCard from "@/components/home/NameSetupCard";
+import PlayerBanner from "@/components/home/PlayerBanner";
 import CreateRoomForm from "@/components/home/CreateRoomForm";
 import JoinRoomForm from "@/components/home/JoinRoomForm";
+import QuickPlayBanner from "@/components/home/QuickPlayBanner";
 
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-
-import {
-  createRoom,
-  getPublicRooms,
-  joinRoom,
-  reEnterRoom,
-} from "@/lib/api";
+import { createRoom, getPublicRooms, joinRoom, reEnterRoom } from "@/lib/api";
 
 export default function HomePage() {
   const router = useRouter();
@@ -34,7 +22,6 @@ export default function HomePage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [joinLoading, setJoinLoading] = useState(false);
   const [reEnterLoading, setReEnterLoading] = useState(false);
-
   const [hasPreviousRoom, setHasPreviousRoom] = useState(false);
 
   useEffect(() => {
@@ -55,14 +42,8 @@ export default function HomePage() {
 
   function handleSaveName(e: FormEvent) {
     e.preventDefault();
-
     const normalizedName = draftName.trim();
-
-    if (!normalizedName) {
-      setError("Name is required");
-      return;
-    }
-
+    if (!normalizedName) { setError("Name is required"); return; }
     localStorage.setItem("player_name", normalizedName);
     setPlayerName(normalizedName);
     setError("");
@@ -71,7 +52,6 @@ export default function HomePage() {
   function handleClearLocalStorage() {
     localStorage.clear();
     localStorage.setItem("player_id", crypto.randomUUID());
-
     setPlayerName("");
     setDraftName("");
     setError("");
@@ -82,21 +62,14 @@ export default function HomePage() {
   async function handleCreateRoom(visibility: "public" | "private") {
     setError("");
     setCreateLoading(true);
-
     try {
       const playerId = localStorage.getItem("player_id") || "";
       const name = localStorage.getItem("player_name") || "";
-
-      if (!playerId || !name) {
-        throw new Error("Player identity not initialized");
-      }
-
+      if (!playerId || !name) throw new Error("Player identity not initialized");
       const data = await createRoom(name, playerId, visibility);
-
       localStorage.setItem("player_id", data.player_id);
       localStorage.setItem("room_code", data.room_code);
       localStorage.setItem("player_card", JSON.stringify(data.card));
-
       router.push(`/room/${data.room_code}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create room");
@@ -108,21 +81,14 @@ export default function HomePage() {
   async function handleJoinRoom(roomCode: string) {
     setError("");
     setJoinLoading(true);
-
     try {
       const playerId = localStorage.getItem("player_id") || "";
       const name = localStorage.getItem("player_name") || "";
-
-      if (!playerId || !name) {
-        throw new Error("Player identity not initialized");
-      }
-
+      if (!playerId || !name) throw new Error("Player identity not initialized");
       const data = await joinRoom(roomCode, playerId, name);
-
       localStorage.setItem("player_id", data.player_id);
       localStorage.setItem("room_code", data.room_code);
       localStorage.setItem("player_card", JSON.stringify(data.card));
-
       router.push(`/room/${data.room_code}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join room");
@@ -133,40 +99,25 @@ export default function HomePage() {
 
   async function handleQuickPlay() {
     setError("");
-
     try {
       const rooms = await getPublicRooms();
-
-      if (rooms.length === 0) {
-        setError("No active public lobbies available.");
-        return;
-      }
-
-      const randomIndex = Math.floor(Math.random() * rooms.length);
-      const randomRoom = rooms[randomIndex];
+      if (rooms.length === 0) { setError("No active public lobbies right now."); return; }
+      const randomRoom = rooms[Math.floor(Math.random() * rooms.length)];
       await handleJoinRoom(randomRoom.room_code);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to quick play");
     }
   }
 
-  /* ✅ NEW: RE-ENTER FUNCTION */
   async function handleReEnter() {
     setError("");
     setReEnterLoading(true);
-
     try {
       const playerId = localStorage.getItem("player_id") || "";
       const roomCode = localStorage.getItem("room_code") || "";
-
-      if (!playerId || !roomCode) {
-        throw new Error("No previous session found");
-      }
-
+      if (!playerId || !roomCode) throw new Error("No previous session found");
       const data = await reEnterRoom(roomCode, playerId);
-
       localStorage.setItem("player_card", JSON.stringify(data.card));
-
       router.push(`/room/${roomCode}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to re-enter room");
@@ -176,105 +127,65 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10">
-      <div className="mx-auto max-w-5xl space-y-8">
+    <main className="min-h-screen bg-[#FAF8F5] px-5 pb-16">
+      {/* Top accent bar */}
+      <div className="h-1 w-full bg-gradient-to-r from-orange-400 via-orange-500 to-amber-400 fixed top-0 left-0 z-50" />
+
+      {/* Nav */}
+      <nav className="flex items-center justify-between pt-6 pb-2 max-w-2xl mx-auto">
+        <span className="font-display font-black text-lg text-stone-900 tracking-tight">
+          Bingo<span className="text-orange-500">.</span>
+        </span>
+        <span className="text-xs text-stone-400 font-medium">
+          Real-time · Multiplayer
+        </span>
+      </nav>
+
+      <div className="mx-auto max-w-2xl space-y-4">
         <HomeHero />
 
         {/* NAME SETUP */}
-        {identityReady && !playerName ? (
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>Set Your Name</CardTitle>
-              <CardDescription>
-                Enter your name once. This browser will reuse it automatically.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                onSubmit={handleSaveName}
-                className="flex flex-col gap-3 sm:flex-row"
-              >
-                <Input
-                  value={draftName}
-                  onChange={(e) => setDraftName(e.target.value)}
-                  placeholder="Enter your name"
-                  required
-                />
-                <Button type="submit">Continue</Button>
-              </form>
-            </CardContent>
-          </Card>
-        ) : null}
+        {identityReady && !playerName && (
+          <NameSetupCard
+            draftName={draftName}
+            onChange={setDraftName}
+            onSubmit={handleSaveName}
+          />
+        )}
 
         {/* ERROR */}
-        {error ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        {error && (
+          <div className="flex items-center gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-5.75a.75.75 0 001.5 0V8a.75.75 0 00-1.5 0v4.25zm.75 2.5a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+            </svg>
             {error}
           </div>
-        ) : null}
+        )}
 
         {/* MAIN CONTENT */}
-        {playerName ? (
+        {playerName && (
           <>
-            <div className="flex flex-col gap-3 rounded-xl border px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                Playing as{" "}
-                <span className="font-semibold text-foreground">
-                  {playerName}
-                </span>
-              </div>
+            <PlayerBanner
+              playerName={playerName}
+              hasPreviousRoom={hasPreviousRoom}
+              reEnterLoading={reEnterLoading}
+              onReEnter={handleReEnter}
+              onReset={handleClearLocalStorage}
+            />
 
-              <div className="flex gap-2">
-                {/* ✅ RE-ENTER BUTTON */}
-                {hasPreviousRoom && (
-                  <Button
-                    variant="secondary"
-                    onClick={handleReEnter}
-                    disabled={reEnterLoading}
-                  >
-                    {reEnterLoading
-                      ? "Re-entering..."
-                      : "Re-enter Last Room"}
-                  </Button>
-                )}
-
-                <Button variant="outline" onClick={handleClearLocalStorage}>
-                  Change Name / Reset Identity
-                </Button>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <CreateRoomForm onSubmit={handleCreateRoom} loading={createLoading} />
+              <JoinRoomForm onSubmit={handleJoinRoom} loading={joinLoading} />
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <CreateRoomForm
-                onSubmit={handleCreateRoom}
-                loading={createLoading}
-              />
-              <JoinRoomForm
-                onSubmit={handleJoinRoom}
-                loading={joinLoading}
-              />
-            </div>
-
-            <div className="rounded-2xl border p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="font-semibold">Quick Play</div>
-                  <div className="text-sm text-muted-foreground">
-                    Instantly join a random active public room.
-                  </div>
-                </div>
-
-                <Button
-                  type="button"
-                  onClick={handleQuickPlay}
-                  disabled={joinLoading}
-                >
-                  {joinLoading ? "Joining..." : "Quick Play"}
-                </Button>
-              </div>
-            </div>
+            <QuickPlayBanner loading={joinLoading} onQuickPlay={handleQuickPlay} />
           </>
-        ) : null}
+        )}
+
+        <p className="text-center text-xs text-stone-300 pt-6">
+          LuckyBingo · Built for classrooms, events &amp; parties
+        </p>
       </div>
     </main>
   );

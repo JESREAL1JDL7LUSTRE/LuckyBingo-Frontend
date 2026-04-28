@@ -3,6 +3,26 @@
 import type { RoomSnapshot } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { WinPattern } from "@/lib/types";
+
+const WIN_PATTERN_OPTIONS: Array<{ value: WinPattern; label: string }> = [
+  { value: "DEFAULT", label: "Any Line (Default)" },
+  { value: "HORIZONTAL_ONLY", label: "Horizontal Only" },
+  { value: "VERTICAL_ONLY", label: "Vertical Only" },
+  { value: "DIAGONAL_ONLY", label: "Diagonal Only" },
+  { value: "CROSS", label: "Cross" },
+  { value: "X_PATTERN", label: "X Pattern" },
+  { value: "FOUR_CORNERS", label: "Four Corners" },
+  { value: "FULL_BLACKOUT", label: "Full Blackout" },
+  { value: "PICTURE_FRAME", label: "Picture Frame" },
+];
 
 type RoomHeaderProps = {
   room: RoomSnapshot;
@@ -12,6 +32,7 @@ type RoomHeaderProps = {
   onClaimBingo: () => Promise<void>;
   onLeave: () => void;
   onEndSession: () => Promise<void>;
+  onWinPatternChange: (pattern: WinPattern) => Promise<void>;
 };
 
 export default function RoomHeader({
@@ -22,6 +43,7 @@ export default function RoomHeader({
   onClaimBingo,
   onLeave,
   onEndSession,
+  onWinPatternChange,
 }: RoomHeaderProps) {
   return (
     <Card className="rounded-2xl">
@@ -36,6 +58,9 @@ export default function RoomHeader({
           <p className="text-sm text-muted-foreground">
             Current number: {room.current_number ?? "None yet"}
           </p>
+          <p className="text-sm text-muted-foreground">
+            Win pattern: {room.win_pattern}
+          </p>
         </div>
 
         {/* RIGHT SIDE BUTTONS */}
@@ -44,6 +69,23 @@ export default function RoomHeader({
           {/* HOST CONTROLS */}
           {isHost && (
             <>
+              <Select
+                value={room.win_pattern}
+                onValueChange={(value) => onWinPatternChange(value as WinPattern)}
+                disabled={actionLoading || room.status === "finished"}
+              >
+                <SelectTrigger className="min-w-56" aria-label="Select win pattern">
+                  <SelectValue placeholder="Select win pattern" />
+                </SelectTrigger>
+                <SelectContent>
+                  {WIN_PATTERN_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Button
                 onClick={onCallNumber}
                 disabled={actionLoading || room.status === "finished"}
