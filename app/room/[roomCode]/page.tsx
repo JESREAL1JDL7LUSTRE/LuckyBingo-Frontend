@@ -7,6 +7,7 @@ import WinnerModal from "@/components/modals/WinnerModal";
 import SessionEndedModal from "@/components/modals/SessionEndedModal";
 import InvalidBingoModal from "@/components/modals/InvalidBingoModal";
 import LeaveSessionModal from "@/components/modals/LeaveSessionModal";
+import EndSessionModal from "@/components/modals/EndSessionModal";
 
 import {
   callNumber,
@@ -37,6 +38,7 @@ export default function RoomPage() {
   const [winnerName, setWinnerName] = useState("");
   const [showInvalidBingoModal, setShowInvalidBingoModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [showSessionEndedModal, setShowSessionEndedModal] = useState(false);
   const [showSessionRestartedToast, setShowSessionRestartedToast] = useState(false);
 
@@ -223,11 +225,16 @@ export default function RoomPage() {
   }
 
   async function handleEndSession() {
+    if (actionLoading) return;
     setError("");
+    setActionLoading(true);
     try {
       await endSession(roomCode, playerId);
+      setShowEndSessionModal(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to end session");
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -329,7 +336,7 @@ export default function RoomPage() {
         onCallNumber={handleCallNumber}
         onClaimBingo={handleClaimBingo}
         onLeave={() => setShowLeaveModal(true)}
-        onEndSession={handleEndSession}
+        onEndSession={async () => setShowEndSessionModal(true)}
         onRestartSession={handleRestartSession}
         onWinPatternChange={handleWinPatternChange}
       />
@@ -382,6 +389,13 @@ export default function RoomPage() {
           router.push("/");
         }}
         onCancel={() => setShowSessionEndedModal(false)}
+      />
+
+      <EndSessionModal
+        open={showEndSessionModal}
+        loading={actionLoading}
+        onConfirm={handleEndSession}
+        onCancel={() => setShowEndSessionModal(false)}
       />
 
       <InvalidBingoModal
