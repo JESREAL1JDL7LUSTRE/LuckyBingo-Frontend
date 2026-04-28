@@ -14,6 +14,7 @@ import {
   getRoom,
   getRoomWebSocketUrl,
   endSession,
+  restartSession,
   leaveRoom,
   sendQuickChat,
   updateWinPattern,
@@ -37,6 +38,7 @@ export default function RoomPage() {
   const [showInvalidBingoModal, setShowInvalidBingoModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showSessionEndedModal, setShowSessionEndedModal] = useState(false);
+  const [showSessionRestartedToast, setShowSessionRestartedToast] = useState(false);
 
   // Host failover toast
   const [showHostPromotionToast, setShowHostPromotionToast] = useState(false);
@@ -50,6 +52,7 @@ export default function RoomPage() {
   const [markedCells, setMarkedCells] = useState<string[]>([]);
   const [activeQuickChats, setActiveQuickChats] = useState<Record<string, string>>({});
   const quickChatTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const winnerAnnouncedIdRef = useRef<string | null>(null);
 
   // Track previous host to detect failover
   const prevHostIdRef = useRef<string | null>(null);
@@ -80,9 +83,13 @@ export default function RoomPage() {
 
   /* WEBSOCKET */
   useEffect(() => {
-    if (!roomCode || !playerId) return;
+    if (!roomCode || !playerId || !playerName.trim()) return;
 
     const ws = new WebSocket(getRoomWebSocketUrl(roomCode, playerId, playerName));
+
+    ws.onopen = () => {
+      setError("");
+    };
 
     ws.onmessage = (event) => {
       try {
@@ -101,6 +108,21 @@ export default function RoomPage() {
               setShowHostPromotionToast(true);
               setTimeout(() => setShowHostPromotionToast(false), 5000);
             }
+
+            if (
+              prev &&
+              prev.status === "finished" &&
+              newRoom.status !== "finished"
+            ) {
+              setShowWinnerModal(false);
+              setShowSessionEndedModal(false);
+              setShowInvalidBingoModal(false);
+              setWinnerName("");
+              winnerAnnouncedIdRef.current = null;
+              setMarkedCells([]);
+              setShowSessionRestartedToast(true);
+              setTimeout(() => setShowSessionRestartedToast(false), 4000);
+            }
             prevHostIdRef.current = newRoom.host_id;
             return newRoom;
           });
@@ -108,6 +130,7 @@ export default function RoomPage() {
 
         if (data.type === "bingo_won") {
           setWinnerName(data.winner_name);
+          winnerAnnouncedIdRef.current = data.winner_id ?? null;
           setShowWinnerModal(true);
         }
 
@@ -143,7 +166,15 @@ export default function RoomPage() {
       }
     };
 
-    ws.onerror = (err) => console.error("WebSocket error:", err);
+    ws.onerror = () => {
+      setError("Realtime connection issue. Retrying automatically...");
+    };
+
+    ws.onclose = (event) => {
+      if (!event.wasClean) {
+        setError("Realtime connection lost. Trying to reconnect...");
+      }
+    };
 
     return () => {
       ws.close();
@@ -155,6 +186,16 @@ export default function RoomPage() {
   const isHost = useMemo(() => {
     return room?.host_id === playerId;
   }, [room, playerId]);
+
+  useEffect(() => {
+    if (!room?.winner_id) return;
+    if (winnerAnnouncedIdRef.current === room.winner_id) return;
+
+    const winner = room.players.find((p) => p.player_id === room.winner_id);
+    setWinnerName(winner?.player_name || "A player");
+    setShowWinnerModal(true);
+    winnerAnnouncedIdRef.current = room.winner_id;
+  }, [room]);
 
   /* ACTIONS */
   async function handleCallNumber() {
@@ -187,6 +228,19 @@ export default function RoomPage() {
       await endSession(roomCode, playerId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to end session");
+    }
+  }
+
+  async function handleRestartSession() {
+    if (actionLoading) return;
+    setError("");
+    setActionLoading(true);
+    try {
+      await restartSession(roomCode, playerId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to restart session");
+    } finally {
+      setActionLoading(false);
     }
   }
 
@@ -261,14 +315,22 @@ export default function RoomPage() {
         </div>
       )}
 
+      {showSessionRestartedToast && (
+        <div className="fixed top-16 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-emerald-300/40 bg-emerald-100/70 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg">
+          🔄 New round started. Good luck!
+        </div>
+      )}
+
       <RoomHeader
         room={room}
         isHost={isHost}
         actionLoading={actionLoading}
+        canShowRestart={Boolean(room.winner_id)}
         onCallNumber={handleCallNumber}
         onClaimBingo={handleClaimBingo}
         onLeave={() => setShowLeaveModal(true)}
         onEndSession={handleEndSession}
+        onRestartSession={handleRestartSession}
         onWinPatternChange={handleWinPatternChange}
       />
 
@@ -299,6 +361,17 @@ export default function RoomPage() {
       <WinnerModal
         open={showWinnerModal}
         winnerName={winnerName}
+        canPlayAgain={isHost}
+        playAgainLoading={actionLoading}
+        onLeave={() => {
+          setShowWinnerModal(false);
+          setShowLeaveModal(true);
+        }}
+        onPlayAgain={async () => {
+          if (!isHost) return;
+          await handleRestartSession();
+          setShowWinnerModal(false);
+        }}
         onClose={() => setShowWinnerModal(false)}
       />
 

@@ -28,10 +28,12 @@ type RoomHeaderProps = {
   room: RoomSnapshot;
   isHost: boolean;
   actionLoading: boolean;
+  canShowRestart: boolean;
   onCallNumber: () => Promise<void>;
   onClaimBingo: () => Promise<void>;
   onLeave: () => void;
   onEndSession: () => Promise<void>;
+  onRestartSession: () => Promise<void>;
   onWinPatternChange: (pattern: WinPattern) => Promise<void>;
 };
 
@@ -39,10 +41,12 @@ export default function RoomHeader({
   room,
   isHost,
   actionLoading,
+  canShowRestart,
   onCallNumber,
   onClaimBingo,
   onLeave,
   onEndSession,
+  onRestartSession,
   onWinPatternChange,
 }: RoomHeaderProps) {
   return (
@@ -100,6 +104,16 @@ export default function RoomHeader({
               >
                 End Session
               </Button>
+
+              {canShowRestart && (
+                <Button
+                  variant="default"
+                  onClick={onRestartSession}
+                  disabled={actionLoading || room.status !== "finished"}
+                >
+                  Play Again
+                </Button>
+              )}
             </>
           )}
 

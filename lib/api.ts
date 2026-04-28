@@ -112,6 +112,15 @@ export async function endSession(roomCode: string, hostId: string) {
   return handleResponse<{ room: RoomSnapshot }>(res);
 }
 
+export async function restartSession(roomCode: string, hostId: string) {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/${roomCode}/restart-session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ host_id: hostId }),
+  });
+  return handleResponse<{ room: RoomSnapshot }>(res);
+}
+
 export async function updateWinPattern(
   roomCode: string,
   hostId: string,
