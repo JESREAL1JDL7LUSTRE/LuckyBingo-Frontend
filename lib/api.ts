@@ -4,10 +4,25 @@ import type {
   PublicRoomSummary,
   RoomSnapshot,
   BingoCell,
+  WinPattern,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const API_BASE_URL = API_URL.replace(/\/+$/, "");
+
+async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Network request failed";
+    throw new Error(
+      `Cannot connect to backend at ${API_BASE_URL}. Ensure the FastAPI server is running. (${message})`
+    );
+  }
+}
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -26,7 +41,7 @@ export async function createRoom(
   hostId: string,
   visibility: "public" | "private" = "private"
 ): Promise<CreateRoomResponse> {
-  const res = await fetch(`${API_BASE_URL}/rooms`, {
+  const res = await apiFetch(`${API_BASE_URL}/rooms`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ host_name: hostName, host_id: hostId, visibility }),
@@ -35,7 +50,7 @@ export async function createRoom(
 }
 
 export async function getPublicRooms(): Promise<PublicRoomSummary[]> {
-  const res = await fetch(`${API_BASE_URL}/rooms/public`, {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/public`, {
     cache: "no-store",
   });
   return handleResponse<PublicRoomSummary[]>(res);
@@ -46,7 +61,7 @@ export async function joinRoom(
   playerId: string,
   playerName: string
 ): Promise<JoinRoomResponse> {
-  const res = await fetch(`${API_BASE_URL}/players/join`, {
+  const res = await apiFetch(`${API_BASE_URL}/players/join`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -59,14 +74,14 @@ export async function joinRoom(
 }
 
 export async function getRoom(roomCode: string): Promise<RoomSnapshot> {
-  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}`, {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/${roomCode}`, {
     cache: "no-store",
   });
   return handleResponse<RoomSnapshot>(res);
 }
 
 export async function callNumber(roomCode: string, hostId: string) {
-  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}/call-number`, {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/${roomCode}/call-number`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ host_id: hostId }),
@@ -78,7 +93,7 @@ export async function claimBingo(
   roomCode: string,
   playerId: string
 ) {
-  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}/claim-bingo`, {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/${roomCode}/claim-bingo`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ player_id: playerId }),
@@ -89,7 +104,7 @@ export async function claimBingo(
 /* NEW FEATURES */
 
 export async function endSession(roomCode: string, hostId: string) {
-  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}/end-session`, {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/${roomCode}/end-session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ host_id: hostId }),
@@ -97,8 +112,21 @@ export async function endSession(roomCode: string, hostId: string) {
   return handleResponse<{ room: RoomSnapshot }>(res);
 }
 
+export async function updateWinPattern(
+  roomCode: string,
+  hostId: string,
+  winPattern: WinPattern
+) {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/${roomCode}/win-pattern`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ host_id: hostId, win_pattern: winPattern }),
+  });
+  return handleResponse<{ room: RoomSnapshot }>(res);
+}
+
 export async function sendQuickChat(roomCode: string, playerId: string, message: string) {
-  const res = await fetch(`${API_BASE_URL}/rooms/${roomCode}/quick-chat`, {
+  const res = await apiFetch(`${API_BASE_URL}/rooms/${roomCode}/quick-chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ player_id: playerId, message }),
@@ -107,7 +135,7 @@ export async function sendQuickChat(roomCode: string, playerId: string, message:
 }
 
 export async function leaveRoom(roomCode: string, playerId: string) {
-  const res = await fetch(`${API_BASE_URL}/players/leave`, {
+  const res = await apiFetch(`${API_BASE_URL}/players/leave`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ room_code: roomCode, player_id: playerId }),
@@ -116,7 +144,7 @@ export async function leaveRoom(roomCode: string, playerId: string) {
 }
 
 export async function reEnterRoom(roomCode: string, playerId: string) {
-  const res = await fetch(`${API_BASE_URL}/players/re-enter`, {
+  const res = await apiFetch(`${API_BASE_URL}/players/re-enter`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ room_code: roomCode, player_id: playerId }),

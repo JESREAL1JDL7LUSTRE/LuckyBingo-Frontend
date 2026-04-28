@@ -16,9 +16,10 @@ import {
   endSession,
   leaveRoom,
   sendQuickChat,
+  updateWinPattern,
 } from "@/lib/api";
 
-import type { BingoCell, RoomSnapshot } from "@/lib/types";
+import type { BingoCell, RoomSnapshot, WinPattern } from "@/lib/types";
 
 import RoomHeader from "@/components/room/RoomHeader";
 import BingoCard from "@/components/room/BingoCard";
@@ -189,6 +190,17 @@ export default function RoomPage() {
     }
   }
 
+  async function handleWinPatternChange(pattern: WinPattern) {
+    if (!isHost) return;
+    setError("");
+    try {
+      const res = await updateWinPattern(roomCode, playerId, pattern);
+      setRoom(res.room);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update win pattern");
+    }
+  }
+
   async function handleLeaveConfirmed() {
     setError("");
     try {
@@ -257,6 +269,7 @@ export default function RoomPage() {
         onClaimBingo={handleClaimBingo}
         onLeave={() => setShowLeaveModal(true)}
         onEndSession={handleEndSession}
+        onWinPatternChange={handleWinPatternChange}
       />
 
       <CalledNumbers numbers={room.called_numbers} />
@@ -266,9 +279,10 @@ export default function RoomPage() {
           card={card}
           calledNumbers={room.called_numbers}
           markedCells={markedCells}
+          winPattern={room.win_pattern}
           onCellClick={(r, c, val) => {
             const key = `${r}-${c}`;
-            if (!room.called_numbers.includes(Number(val))) return;
+            if (val !== "FREE" && !room.called_numbers.includes(Number(val))) return;
             setMarkedCells((prev) =>
               prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
             );

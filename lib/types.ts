@@ -1,5 +1,17 @@
 export type BingoCell = number | string;
 
+export type WinPattern =
+  | "DEFAULT"
+  | "ANY_LINE"
+  | "HORIZONTAL_ONLY"
+  | "VERTICAL_ONLY"
+  | "DIAGONAL_ONLY"
+  | "CROSS"
+  | "X_PATTERN"
+  | "FOUR_CORNERS"
+  | "FULL_BLACKOUT"
+  | "PICTURE_FRAME";
+
 export type PlayerSummary = {
   player_id: string;
   player_name: string;
@@ -11,6 +23,7 @@ export type RoomSnapshot = {
   room_code: string;
   host_id: string;
   visibility: "public" | "private";
+  win_pattern: WinPattern;
   status: "waiting" | "in_progress" | "finished";
   ended_by_host: boolean;
   players: PlayerSummary[];
