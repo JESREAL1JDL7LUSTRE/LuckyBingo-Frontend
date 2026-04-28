@@ -83,9 +83,13 @@ export default function RoomPage() {
 
   /* WEBSOCKET */
   useEffect(() => {
-    if (!roomCode || !playerId) return;
+    if (!roomCode || !playerId || !playerName.trim()) return;
 
     const ws = new WebSocket(getRoomWebSocketUrl(roomCode, playerId, playerName));
+
+    ws.onopen = () => {
+      setError("");
+    };
 
     ws.onmessage = (event) => {
       try {
@@ -162,7 +166,15 @@ export default function RoomPage() {
       }
     };
 
-    ws.onerror = (err) => console.error("WebSocket error:", err);
+    ws.onerror = () => {
+      setError("Realtime connection issue. Retrying automatically...");
+    };
+
+    ws.onclose = (event) => {
+      if (!event.wasClean) {
+        setError("Realtime connection lost. Trying to reconnect...");
+      }
+    };
 
     return () => {
       ws.close();
