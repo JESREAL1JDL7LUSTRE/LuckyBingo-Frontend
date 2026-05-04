@@ -50,25 +50,21 @@ export default function RoomHeader({
   onWinPatternChange,
 }: RoomHeaderProps) {
   return (
-    <Card className="rounded-2xl">
-      <CardContent className="flex flex-col gap-4 p-6 md:flex-row md:items-center md:justify-between">
+    <Card className="rounded-3xl border-none bg-white/80 shadow-lg backdrop-blur">
+      <CardContent className="flex flex-col gap-3 p-4">
         
         {/* LEFT SIDE */}
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold">Room {room.room_code}</h1>
-          <p className="text-sm text-muted-foreground">
-            Status: {room.status}
-          </p>
-          <p className="text-sm text-muted-foreground">
+        <div className="space-y-0.5">
+          <h1 className="text-2xl font-bold text-slate-900">Room {room.room_code}</h1>
+          <p className="text-xs text-slate-600">Status: {room.status}</p>
+          <p className="text-xs text-slate-600">
             Current number: {room.current_number ?? "None yet"}
           </p>
-          <p className="text-sm text-muted-foreground">
-            Win pattern: {room.win_pattern}
-          </p>
+          <p className="text-xs text-slate-600">Win pattern: {room.win_pattern}</p>
         </div>
 
         {/* RIGHT SIDE BUTTONS */}
-        <div className="flex flex-wrap gap-3">
+  <div className="flex flex-wrap gap-2">
           
           {/* HOST CONTROLS */}
           {isHost && (
@@ -78,7 +74,7 @@ export default function RoomHeader({
                 onValueChange={(value) => onWinPatternChange(value as WinPattern)}
                 disabled={actionLoading || room.status === "finished"}
               >
-                <SelectTrigger className="min-w-56" aria-label="Select win pattern">
+                <SelectTrigger className="min-w-52 bg-white text-xs" aria-label="Select win pattern">
                   <SelectValue placeholder="Select win pattern" />
                 </SelectTrigger>
                 <SelectContent>
@@ -93,6 +89,7 @@ export default function RoomHeader({
               <Button
                 onClick={onCallNumber}
                 disabled={actionLoading || room.status === "finished"}
+                className="h-9 rounded-full bg-emerald-500 px-3 text-xs text-white shadow-md hover:bg-emerald-600"
               >
                 Call Number
               </Button>
@@ -101,6 +98,7 @@ export default function RoomHeader({
                 variant="destructive"
                 onClick={onEndSession}
                 disabled={actionLoading || room.status === "finished"}
+                className="h-9 rounded-full px-3 text-xs"
               >
                 End Session
               </Button>
@@ -110,6 +108,7 @@ export default function RoomHeader({
                   variant="default"
                   onClick={onRestartSession}
                   disabled={actionLoading || room.status !== "finished"}
+                  className="h-9 rounded-full bg-yellow-400 px-3 text-xs text-yellow-900 shadow-md hover:bg-yellow-500"
                 >
                   Play Again
                 </Button>
@@ -122,15 +121,13 @@ export default function RoomHeader({
             variant="outline"
             onClick={onClaimBingo}
             disabled={actionLoading || room.status === "finished"}
+            className="h-9 rounded-full border-yellow-400 bg-yellow-100 px-3 text-xs text-yellow-900 hover:bg-yellow-200"
           >
             Claim Bingo
           </Button>
 
           {/* LEAVE */}
-          <Button
-            variant="secondary"
-            onClick={onLeave}
-          >
+          <Button variant="secondary" onClick={onLeave} className="h-9 rounded-full px-3 text-xs">
             Leave
           </Button>
         </div>

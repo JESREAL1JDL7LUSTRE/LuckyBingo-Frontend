@@ -1,4 +1,10 @@
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import ballB from "@/components/assets/B_ball.svg";
+import ballI from "@/components/assets/I_ball.svg";
+import ballN from "@/components/assets/N_ball.svg";
+import ballG from "@/components/assets/G_ball.svg";
+import ballO from "@/components/assets/O_ball.svg";
 
 type CalledNumbersProps = {
   numbers: number[];
@@ -12,32 +18,68 @@ function getBingoLetter(num: number) {
   return "O";
 }
 
+const BALL_ASSETS: Record<string, typeof ballB> = {
+  B: ballB,
+  I: ballI,
+  N: ballN,
+  G: ballG,
+  O: ballO,
+};
+
 export default function CalledNumbers({ numbers }: CalledNumbersProps) {
+  const recentNumbers = [...numbers].reverse();
+  const [currentNumber, ...previousNumbers] = recentNumbers;
+
   return (
-    <Card className="rounded-2xl">
-      <CardHeader>
-        <CardTitle>Called Numbers</CardTitle>
+    <Card className=" bg-transparent shadow-none">
+  <CardHeader >
+        <CardTitle className="text-lg font-semibold text-slate-900">
+          Called Numbers
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-wrap gap-2">
-          {numbers.length ? (
-            numbers.map((num) => (
-              <div
-                key={num}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-muted px-3 py-1 text-sm font-medium text-foreground"
-              >
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                  {getBingoLetter(num)}
-                </span>
-                <span className="text-foreground">{num}</span>
+        {recentNumbers.length ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {currentNumber !== undefined ? (() => {
+              const letter = getBingoLetter(currentNumber);
+              const asset = BALL_ASSETS[letter];
+              return (
+                <div className="flex items-center gap-2 rounded-2xl px-1 py-1">
+                  <div className="relative h-16 w-16">
+                    <Image src={asset} alt={`${letter} ball`} fill className="object-contain" />
+                    <div className="absolute inset-0 flex items-center justify-center font-bold text-slate-900 top-2">
+                      <span className="text-lg">{currentNumber}</span>
+                    </div>
+                  </div>
+    
+                </div>
+              );
+            })() : null}
+
+            {previousNumbers.length ? (
+              <div className="flex flex-1 flex-wrap items-center gap-0.5">
+                {previousNumbers.map((num, index) => {
+                  const letter = getBingoLetter(num);
+                  return (
+                    <div key={`${num}-${index}`} className="relative h-10 w-10">
+                      <Image
+                        src={BALL_ASSETS[letter]}
+                        alt={`${letter} ball`}
+                        fill
+                        className="object-contain"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center font-bold text-slate-90 top-1">
+                        <span className="text-xs">{num}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              No numbers called yet.
-            </span>
-          )}
-        </div>
+            ) : null}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">No numbers called yet.</span>
+        )}
       </CardContent>
     </Card>
   );

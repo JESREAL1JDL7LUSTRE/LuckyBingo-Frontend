@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 
 import WinnerModal from "@/components/modals/WinnerModal";
@@ -27,6 +28,7 @@ import RoomHeader from "@/components/room/RoomHeader";
 import BingoCard from "@/components/room/BingoCard";
 import PlayerList from "@/components/room/PlayerList";
 import CalledNumbers from "@/components/room/CalledNumbers";
+import backgroundScene from "@/components/assets/background.svg";
 
 export default function RoomPage() {
   const params = useParams();
@@ -308,7 +310,15 @@ export default function RoomPage() {
   }
 
   return (
-    <main className="p-6 space-y-6">
+  <main className="relative min-h-screen overflow-hidden bg-sky-100 px-4 py-6 sm:px-6">
+      <Image
+        src={backgroundScene}
+        alt="Bingo background"
+        fill
+        priority
+        className="object-cover"
+      />
+  <div className="relative z-10 flex w-full flex-col gap-6">
       {error ? (
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {error}
@@ -328,41 +338,45 @@ export default function RoomPage() {
         </div>
       )}
 
-      <RoomHeader
-        room={room}
-        isHost={isHost}
-        actionLoading={actionLoading}
-        canShowRestart={Boolean(room.winner_id)}
-        onCallNumber={handleCallNumber}
-        onClaimBingo={handleClaimBingo}
-        onLeave={() => setShowLeaveModal(true)}
-        onEndSession={async () => setShowEndSessionModal(true)}
-        onRestartSession={handleRestartSession}
-        onWinPatternChange={handleWinPatternChange}
-      />
+      <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="space-y-4">
+          <RoomHeader
+            room={room}
+            isHost={isHost}
+            actionLoading={actionLoading}
+            canShowRestart={Boolean(room.winner_id)}
+            onCallNumber={handleCallNumber}
+            onClaimBingo={handleClaimBingo}
+            onLeave={() => setShowLeaveModal(true)}
+            onEndSession={async () => setShowEndSessionModal(true)}
+            onRestartSession={handleRestartSession}
+            onWinPatternChange={handleWinPatternChange}
+          />
 
-      <CalledNumbers numbers={room.called_numbers} />
+          <PlayerList
+            players={room.players}
+            currentPlayerId={playerId}
+            activeQuickChats={activeQuickChats}
+            onSendQuickChat={handleSendQuickChat}
+          />
+        </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <BingoCard
-          card={card}
-          calledNumbers={room.called_numbers}
-          markedCells={markedCells}
-          winPattern={room.win_pattern}
-          onCellClick={(r, c, val) => {
-            const key = `${r}-${c}`;
-            if (val !== "FREE" && !room.called_numbers.includes(Number(val))) return;
-            setMarkedCells((prev) =>
-              prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
-            );
-          }}
-        />
-        <PlayerList
-          players={room.players}
-          currentPlayerId={playerId}
-          activeQuickChats={activeQuickChats}
-          onSendQuickChat={handleSendQuickChat}
-        />
+        <div className="space-y-3 lg:px-2">
+          <CalledNumbers numbers={room.called_numbers} />
+          <BingoCard
+            card={card}
+            calledNumbers={room.called_numbers}
+            markedCells={markedCells}
+            winPattern={room.win_pattern}
+            onCellClick={(r, c, val) => {
+              const key = `${r}-${c}`;
+              if (val !== "FREE" && !room.called_numbers.includes(Number(val))) return;
+              setMarkedCells((prev) =>
+                prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
+              );
+            }}
+          />
+        </div>
       </div>
 
       <WinnerModal
@@ -408,6 +422,7 @@ export default function RoomPage() {
         onConfirm={handleLeaveConfirmed}
         onCancel={() => setShowLeaveModal(false)}
       />
+      </div>
     </main>
   );
 }
