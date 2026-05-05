@@ -28,12 +28,12 @@ type RoomHeaderProps = {
   room: RoomSnapshot;
   isHost: boolean;
   actionLoading: boolean;
-  canShowRestart: boolean;
   onCallNumber: () => Promise<void>;
   onClaimBingo: () => Promise<void>;
   onLeave: () => void;
   onEndSession: () => Promise<void>;
   onRestartSession: () => Promise<void>;
+  onRefreshCards: () => Promise<void>;
   onWinPatternChange: (pattern: WinPattern) => Promise<void>;
 };
 
@@ -41,12 +41,12 @@ export default function RoomHeader({
   room,
   isHost,
   actionLoading,
-  canShowRestart,
   onCallNumber,
   onClaimBingo,
   onLeave,
   onEndSession,
   onRestartSession,
+  onRefreshCards,
   onWinPatternChange,
 }: RoomHeaderProps) {
   return (
@@ -94,6 +94,7 @@ export default function RoomHeader({
                 Call Number
               </Button>
 
+
               <Button
                 variant="destructive"
                 onClick={onEndSession}
@@ -103,20 +104,31 @@ export default function RoomHeader({
                 End Session
               </Button>
 
-              {canShowRestart && (
-                <Button
-                  variant="default"
-                  onClick={onRestartSession}
-                  disabled={actionLoading || room.status !== "finished"}
-                  className="h-9 rounded-full bg-yellow-400 px-3 text-xs text-yellow-900 shadow-md hover:bg-yellow-500"
-                >
-                  Play Again
-                </Button>
-              )}
+              <Button
+                variant="default"
+                onClick={onRestartSession}
+                disabled={actionLoading || room.status !== "finished"}
+                className="h-9 rounded-full bg-yellow-400 px-3 text-xs text-yellow-900 shadow-md hover:bg-yellow-500"
+              >
+                Play Again
+              </Button>
             </>
           )}
 
           {/* PLAYER ACTION */}
+          <Button
+            variant="outline"
+            onClick={onRefreshCards}
+            disabled={
+              actionLoading ||
+              room.status !== "waiting" ||
+              room.called_numbers.length > 0
+            }
+            className="h-9 rounded-full border-slate-200 bg-white px-3 text-xs text-slate-700 shadow-sm hover:bg-slate-50"
+          >
+            Change Card
+          </Button>
+
           <Button
             variant="outline"
             onClick={onClaimBingo}

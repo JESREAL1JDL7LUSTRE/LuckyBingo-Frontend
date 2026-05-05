@@ -118,7 +118,16 @@ export async function restartSession(roomCode: string, hostId: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ host_id: hostId }),
   });
-  return handleResponse<{ room: RoomSnapshot }>(res);
+  return handleResponse<{ room: RoomSnapshot; cards?: Record<string, BingoCell[][]> }>(res);
+}
+
+export async function changeCard(roomCode: string, playerId: string) {
+  const res = await apiFetch(`${API_BASE_URL}/players/change-card`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ room_code: roomCode, player_id: playerId }),
+  });
+  return handleResponse<{ room: RoomSnapshot; card: BingoCell[][] }>(res);
 }
 
 export async function updateWinPattern(
