@@ -58,6 +58,11 @@ export default function RoomPage() {
   const quickChatTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const winnerAnnouncedIdRef = useRef<string | null>(null);
 
+  const markedStorageKey = useMemo(() => {
+    if (!roomCode || !playerId) return "";
+    return `bingo_marked_${roomCode}_${playerId}`;
+  }, [roomCode, playerId]);
+
   // Track previous host to detect failover
   const prevHostIdRef = useRef<string | null>(null);
 
@@ -84,6 +89,23 @@ export default function RoomPage() {
         setError(err instanceof Error ? err.message : "Failed to load room");
       });
   }, [roomCode]);
+
+  useEffect(() => {
+    if (!markedStorageKey) return;
+    const storedMarks = localStorage.getItem(markedStorageKey);
+    if (!storedMarks) return;
+    try {
+      const parsed = JSON.parse(storedMarks);
+      if (Array.isArray(parsed)) {
+        setMarkedCells(parsed);
+      }
+    } catch {}
+  }, [markedStorageKey]);
+
+  useEffect(() => {
+    if (!markedStorageKey) return;
+    localStorage.setItem(markedStorageKey, JSON.stringify(markedCells));
+  }, [markedCells, markedStorageKey]);
 
   /* WEBSOCKET */
   useEffect(() => {
@@ -124,6 +146,9 @@ export default function RoomPage() {
               setWinnerName("");
               winnerAnnouncedIdRef.current = null;
               setMarkedCells([]);
+              if (markedStorageKey) {
+                localStorage.removeItem(markedStorageKey);
+              }
               setShowSessionRestartedToast(true);
               setTimeout(() => setShowSessionRestartedToast(false), 4000);
             }
@@ -185,7 +210,7 @@ export default function RoomPage() {
       Object.values(quickChatTimeoutsRef.current).forEach((timerId) => clearTimeout(timerId));
       quickChatTimeoutsRef.current = {};
     };
-  }, [roomCode, playerId, playerName]);
+  }, [roomCode, playerId, playerName, markedStorageKey]);
 
   const isHost = useMemo(() => {
     return room?.host_id === playerId;
@@ -274,6 +299,9 @@ export default function RoomPage() {
         setError(message);
         return;
       }
+    }
+    if (markedStorageKey) {
+      localStorage.removeItem(markedStorageKey);
     }
     router.push("/");
   }
