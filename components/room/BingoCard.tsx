@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import bingoCardAsset from "@/components/assets/bingo_card.svg";
 import markAsset from "@/components/assets/mark.svg";
+import greenMarkAsset from "@/components/assets/green_mark.svg";
 
 type BingoCardProps = {
   card: BingoCell[][];
@@ -25,9 +26,10 @@ export default function BingoCard({
   onCellClick,
 }: BingoCardProps) {
   const winningCells = useMemo(() => {
-    const isCellCalledOrFree = (row: number, col: number) => {
+    const isCellMarkedOrFree = (row: number, col: number) => {
       const value = card[row]?.[col];
-      return value === "FREE" || calledNumbers.includes(Number(value));
+      const key = `${row}-${col}`;
+      return value === "FREE" || markedCells.includes(key);
     };
 
     const horizontalLines = Array.from({ length: 5 }, (_, row) =>
@@ -44,7 +46,7 @@ export default function BingoCard({
     const isLineComplete = (line: string[]) =>
       line.every((key) => {
         const [row, col] = key.split("-").map(Number);
-        return isCellCalledOrFree(row, col);
+        return isCellMarkedOrFree(row, col);
       });
 
     const buildSetFromCoordinates = (coords: Array<[number, number]>) =>
@@ -166,7 +168,7 @@ export default function BingoCard({
     }
 
     return completed;
-  }, [card, calledNumbers, winPattern]);
+  }, [card, markedCells, winPattern]);
 
   return (
     <Card className="rounded-2xl border-none bg-transparent shadow-none">
@@ -214,8 +216,8 @@ export default function BingoCard({
                       </span>
                       {!isFree && (isMarked || isWinningCell) && (
                         <Image
-                          src={markAsset}
-                          alt="Marked"
+                          src={isMarked && isWinningCell ? greenMarkAsset : markAsset}
+                          alt={isMarked && isWinningCell ? "Bingo" : "Marked"}
                           fill
                           className="pointer-events-none object-contain opacity-80 scale-85"
                         />

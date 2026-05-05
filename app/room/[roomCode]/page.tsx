@@ -7,8 +7,10 @@ import { useParams, useRouter } from "next/navigation";
 import WinnerModal from "@/components/modals/WinnerModal";
 import SessionEndedModal from "@/components/modals/SessionEndedModal";
 import InvalidBingoModal from "@/components/modals/InvalidBingoModal";
+import NoMoreNumbersModal from "@/components/modals/NoMoreNumbersModal";
 import LeaveSessionModal from "@/components/modals/LeaveSessionModal";
 import EndSessionModal from "@/components/modals/EndSessionModal";
+import RestartSessionModal from "@/components/modals/RestartSessionModal";
 
 import {
   callNumber,
@@ -17,6 +19,7 @@ import {
   getRoomWebSocketUrl,
   endSession,
   restartSession,
+  changeCard,
   leaveRoom,
   sendQuickChat,
   updateWinPattern,
@@ -39,10 +42,13 @@ export default function RoomPage() {
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [winnerName, setWinnerName] = useState("");
   const [showInvalidBingoModal, setShowInvalidBingoModal] = useState(false);
+  const [showNoMoreNumbersModal, setShowNoMoreNumbersModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showEndSessionModal, setShowEndSessionModal] = useState(false);
   const [showSessionEndedModal, setShowSessionEndedModal] = useState(false);
+  const [showRestartSessionModal, setShowRestartSessionModal] = useState(false);
   const [showSessionRestartedToast, setShowSessionRestartedToast] = useState(false);
+  const [showCardsRefreshedToast, setShowCardsRefreshedToast] = useState(false);
 
   // Host failover toast
   const [showHostPromotionToast, setShowHostPromotionToast] = useState(false);
@@ -57,6 +63,11 @@ export default function RoomPage() {
   const [activeQuickChats, setActiveQuickChats] = useState<Record<string, string>>({});
   const quickChatTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const winnerAnnouncedIdRef = useRef<string | null>(null);
+
+  const markedStorageKey = useMemo(() => {
+    if (!roomCode || !playerId) return "";
+    return `bingo_marked_${roomCode}_${playerId}`;
+  }, [roomCode, playerId]);
 
   // Track previous host to detect failover
   const prevHostIdRef = useRef<string | null>(null);
@@ -85,6 +96,23 @@ export default function RoomPage() {
       });
   }, [roomCode]);
 
+  useEffect(() => {
+    if (!markedStorageKey) return;
+    const storedMarks = localStorage.getItem(markedStorageKey);
+    if (!storedMarks) return;
+    try {
+      const parsed = JSON.parse(storedMarks);
+      if (Array.isArray(parsed)) {
+        setMarkedCells(parsed);
+      }
+    } catch {}
+  }, [markedStorageKey]);
+
+  useEffect(() => {
+    if (!markedStorageKey) return;
+    localStorage.setItem(markedStorageKey, JSON.stringify(markedCells));
+  }, [markedCells, markedStorageKey]);
+
   /* WEBSOCKET */
   useEffect(() => {
     if (!roomCode || !playerId || !playerName.trim()) return;
@@ -98,6 +126,27 @@ export default function RoomPage() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+
+        if (data.cards && typeof data.cards === "object") {
+          const nextCard = data.cards[playerId];
+          if (nextCard) {
+            setCard(nextCard);
+            localStorage.setItem("player_card", JSON.stringify(nextCard));
+            setMarkedCells([]);
+            if (markedStorageKey) {
+              localStorage.removeItem(markedStorageKey);
+            }
+          }
+        }
+
+        if (data.type === "card_changed" && data.player_id === playerId && data.card) {
+          setCard(data.card);
+          localStorage.setItem("player_card", JSON.stringify(data.card));
+          setMarkedCells([]);
+          if (markedStorageKey) {
+            localStorage.removeItem(markedStorageKey);
+          }
+        }
 
         if (data.room) {
           const newRoom: RoomSnapshot = data.room;
@@ -124,6 +173,9 @@ export default function RoomPage() {
               setWinnerName("");
               winnerAnnouncedIdRef.current = null;
               setMarkedCells([]);
+              if (markedStorageKey) {
+                localStorage.removeItem(markedStorageKey);
+              }
               setShowSessionRestartedToast(true);
               setTimeout(() => setShowSessionRestartedToast(false), 4000);
             }
@@ -140,6 +192,11 @@ export default function RoomPage() {
 
         if (data.type === "session_ended") {
           setShowSessionEndedModal(true);
+        }
+
+        if (data.type === "card_changed" && data.player_id === playerId) {
+          setShowCardsRefreshedToast(true);
+          setTimeout(() => setShowCardsRefreshedToast(false), 3000);
         }
 
         if (data.type === "quick_chat" && data.player_id && data.message) {
@@ -185,7 +242,7 @@ export default function RoomPage() {
       Object.values(quickChatTimeoutsRef.current).forEach((timerId) => clearTimeout(timerId));
       quickChatTimeoutsRef.current = {};
     };
-  }, [roomCode, playerId, playerName]);
+  }, [roomCode, playerId, playerName, markedStorageKey]);
 
   const isHost = useMemo(() => {
     return room?.host_id === playerId;
@@ -208,7 +265,12 @@ export default function RoomPage() {
       const res = await callNumber(roomCode, playerId);
       setRoom(res.room);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to call number");
+      const message = err instanceof Error ? err.message : "Failed to call number";
+      if (message === "No more numbers available") {
+        setShowNoMoreNumbersModal(true);
+        return;
+      }
+      setError(message);
     }
   }
 
@@ -245,9 +307,39 @@ export default function RoomPage() {
     setError("");
     setActionLoading(true);
     try {
-      await restartSession(roomCode, playerId);
+      const res = await restartSession(roomCode, playerId);
+      setRoom(res.room);
+      const nextCard = res.cards?.[playerId];
+      if (nextCard) {
+        setCard(nextCard);
+        localStorage.setItem("player_card", JSON.stringify(nextCard));
+        setMarkedCells([]);
+        if (markedStorageKey) {
+          localStorage.removeItem(markedStorageKey);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to restart session");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleChangeCard() {
+    if (actionLoading) return;
+    setError("");
+    setActionLoading(true);
+    try {
+      const res = await changeCard(roomCode, playerId);
+      setRoom(res.room);
+      setCard(res.card);
+      localStorage.setItem("player_card", JSON.stringify(res.card));
+      setMarkedCells([]);
+      if (markedStorageKey) {
+        localStorage.removeItem(markedStorageKey);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to change card");
     } finally {
       setActionLoading(false);
     }
@@ -274,6 +366,9 @@ export default function RoomPage() {
         setError(message);
         return;
       }
+    }
+    if (markedStorageKey) {
+      localStorage.removeItem(markedStorageKey);
     }
     router.push("/");
   }
@@ -338,18 +433,27 @@ export default function RoomPage() {
         </div>
       )}
 
+      {showCardsRefreshedToast && (
+        <div className="fixed top-28 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-sky-300/50 bg-sky-100/70 px-5 py-3 text-sm font-medium text-sky-900 shadow-lg">
+          🃏 Your card has been updated.
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="space-y-4">
           <RoomHeader
             room={room}
             isHost={isHost}
             actionLoading={actionLoading}
-            canShowRestart={Boolean(room.winner_id)}
             onCallNumber={handleCallNumber}
             onClaimBingo={handleClaimBingo}
             onLeave={() => setShowLeaveModal(true)}
             onEndSession={async () => setShowEndSessionModal(true)}
-            onRestartSession={handleRestartSession}
+            onRestartSession={async () => {
+              if (!isHost) return;
+              setShowRestartSessionModal(true);
+            }}
+            onRefreshCards={handleChangeCard}
             onWinPatternChange={handleWinPatternChange}
           />
 
@@ -390,8 +494,8 @@ export default function RoomPage() {
         }}
         onPlayAgain={async () => {
           if (!isHost) return;
-          await handleRestartSession();
           setShowWinnerModal(false);
+          setShowRestartSessionModal(true);
         }}
         onClose={() => setShowWinnerModal(false)}
       />
@@ -412,9 +516,24 @@ export default function RoomPage() {
         onCancel={() => setShowEndSessionModal(false)}
       />
 
+      <RestartSessionModal
+        open={showRestartSessionModal}
+        loading={actionLoading}
+        onConfirm={async () => {
+          await handleRestartSession();
+          setShowRestartSessionModal(false);
+        }}
+        onCancel={() => setShowRestartSessionModal(false)}
+      />
+
       <InvalidBingoModal
         open={showInvalidBingoModal}
         onClose={() => setShowInvalidBingoModal(false)}
+      />
+
+      <NoMoreNumbersModal
+        open={showNoMoreNumbersModal}
+        onClose={() => setShowNoMoreNumbersModal(false)}
       />
 
       <LeaveSessionModal
